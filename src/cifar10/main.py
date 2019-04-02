@@ -7,6 +7,7 @@ import cPickle as pickle
 import shutil
 import sys
 import time
+import GPUtil
 
 import numpy as np
 import tensorflow as tf
@@ -19,12 +20,15 @@ from src.utils import DEFINE_integer
 from src.utils import DEFINE_string
 from src.utils import print_user_flags
 
-from src.cifar10.data_utils import read_data
+from src.cifar10.data_utils import read_data, read_data_corrupt_label
 from src.cifar10.general_controller import GeneralController
 from src.cifar10.general_child import GeneralChild
 
 from src.cifar10.micro_controller import MicroController
 from src.cifar10.micro_child import MicroChild
+
+deviceIDs = GPUtil.getAvailable(limit=1)
+os.environ["CUDA_VISIBLE_DEVICES"]=','.join(map(str, deviceIDs))
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -214,9 +218,9 @@ def get_ops(images, labels):
 
 def train():
   if FLAGS.child_fixed_arc is None:
-    images, labels = read_data(FLAGS.data_path)
+    images, labels = read_data_corrupt_label(FLAGS.data_path)
   else:
-    images, labels = read_data(FLAGS.data_path, num_valids=0)
+    images, labels = read_data_corrupt_label(FLAGS.data_path, num_valids=0)
 
   g = tf.Graph()
   with g.as_default():
