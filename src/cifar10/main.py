@@ -27,7 +27,8 @@ from src.cifar10.general_child import GeneralChild
 from src.cifar10.micro_controller import MicroController
 from src.cifar10.micro_child import MicroChild
 
-deviceIDs = GPUtil.getAvailable(limit=1)
+deviceIDs = GPUtil.getFirstAvailable()
+print('Available GPU: {}'.format(deviceIDs))
 os.environ["CUDA_VISIBLE_DEVICES"]=','.join(map(str, deviceIDs))
 
 flags = tf.app.flags
