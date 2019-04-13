@@ -111,7 +111,14 @@ class MicroChild(Model):
 
     if self.use_aux_heads:
       self.aux_head_indices = [self.pool_layers[-1] + 1]
-    
+
+    # TODO
+    self.x_train_silver = self.x_train
+    self.y_train_silver = self.y_train
+    # TODO
+    self.x_train_gold = self.x_train
+    self.y_train_gold = self.y_train
+
   def _factorized_reduction(self, x, out_filters, stride, is_training):
     """Reduces the shape of x without information loss due to striding."""
     assert out_filters % 2 == 0, (
@@ -808,6 +815,152 @@ class MicroChild(Model):
     self.valid_shuffle_acc = tf.to_int32(self.valid_shuffle_acc)
     self.valid_shuffle_acc = tf.reduce_sum(self.valid_shuffle_acc)
 
+  def _build_C(self):
+    # //////////////////////// estimate C ////////////////////////
+    logits = self._model(self.x_train_gold, False, reuse=True)
+    probs = tf.nn.softmax(logits)
+    # probs = F.softmax(net(V(torch.from_numpy(gold['x']).cuda(), volatile=True))).data.cpu().numpy()
+    num_classes = 10
+    self.C_hat = tf.Variable(tf.zeros([num_classes, num_classes]))
+    # C_hat = np.zeros((num_classes, num_classes))
+    for label in range(num_classes):
+      indices = np.arange(len(self.y_train_gold))[self.y_train_gold == label]
+      self.C_hat[label] = np.mean(probs[indices], axis=0, keepdims=True)
+
+  def _build_train_corrupt(self):
+    print("-" * 80)
+    print("Build train graph for silver data")
+    logits = self._model(self.x_train_silver, is_training=True)
+    log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
+      logits=logits, labels=self.y_train_silver)
+    self.train_corrupt_loss = tf.reduce_mean(log_probs)
+
+    if self.use_aux_heads:
+      log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
+        logits=self.aux_logits, labels=self.y_train_silver)
+      self.aux_loss = tf.reduce_mean(log_probs)
+      train_loss = self.train_corrupt_loss + 0.4 * self.aux_loss
+    else:
+      train_loss = self.train_corrupt_loss
+
+    self.train_corrupt_preds = tf.argmax(logits, axis=1)
+    self.train_corrupt_preds = tf.to_int32(self.train_corrupt_preds)
+    self.train_corrupt_acc = tf.equal(self.train_corrupt_preds, self.y_train_silver)
+    self.train_corrupt_acc = tf.to_int32(self.train_corrupt_acc)
+    self.train_corrupt_acc = tf.reduce_sum(self.train_corrupt_acc)
+
+    tf_variables = [
+      var for var in tf.trainable_variables() if (
+        var.name.startswith(self.name) and "aux_head" not in var.name)]
+    self.num_vars = count_model_params(tf_variables)
+    print("Model has {0} params".format(self.num_vars))
+
+    self.train_corrupt_op, self.train_corrupt_lr, self.train_corrupt_grad_norm, self.train_corrupt_optimizer = get_train_ops(
+      train_loss,
+      tf_variables,
+      self.global_step,
+      clip_mode=self.clip_mode,
+      grad_bound=self.grad_bound,
+      l2_reg=self.l2_reg,
+      lr_init=self.lr_init,
+      lr_dec_start=self.lr_dec_start,
+      lr_dec_every=self.lr_dec_every,
+      lr_dec_rate=self.lr_dec_rate,
+      lr_cosine=self.lr_cosine,
+      lr_max=self.lr_max,
+      lr_min=self.lr_min,
+      lr_T_0=self.lr_T_0,
+      lr_T_mul=self.lr_T_mul,
+      num_train_batches=self.num_train_batches,
+      optim_algo=self.optim_algo,
+      sync_replicas=self.sync_replicas,
+      num_aggregate=self.num_aggregate,
+      num_replicas=self.num_replicas)
+
+  def get_silver(self, data):
+    # TODO
+    return data
+
+  def get_gold(self, data):
+    # TODO
+    return data
+
+  def _build_retrain(self):
+    print("-" * 80)
+    print("Build re-train graph for silver and gold data")
+    # forward
+    data_s = self.get_silver(self.x_train)
+    target_s = self.get_silver(self.y_train)
+    data_g = self.get_gold(self.x_train)
+    target_g = self.get_gold(self.y_train)
+
+    loss_s = 0
+    if len(data_s) > 0:
+      output_s = self._model(data_s, is_training=True)
+      pre1 = self._C_hat.t()[target_s]
+      pre2 = tf.math.multiply(tf.nn.softmax(output_s), pre1)
+      loss_s = -(tf.math.log(pre2).sum(1)).sum(0)
+    loss_g = 0
+    if len(data_g) > 0:
+      output_g = self._model(data_g, is_training=True)
+      log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
+        logits=output_g, labels=target_g)
+      loss_g = tf.reduce_mean(log_probs)
+    self.retrain_loss = (loss_g + loss_s) / self.batch_size
+    # if silver_len > 0:
+    #   output_s = net(data_s)
+    #   pre1 = C_hat.t()[torch.cuda.LongTensor(target_s.data)]
+    #   pre2 = torch.mul(F.softmax(output_s), pre1)
+    #   loss_s = -(torch.log(pre2.sum(1))).sum(0)
+    # loss_g = 0
+    # if gold_len > 0:
+    #   output_g = net(data_g)
+    #   loss_g = F.cross_entropy(output_g, target_g, size_average=False)
+    logits = self._model(self.x_train, is_training=True)
+    #
+    if self.use_aux_heads:
+      log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
+        logits=self.aux_logits, labels=self.y_train)
+      self.aux_loss = tf.reduce_mean(log_probs)
+      train_loss = self.retrain_loss + 0.4 * self.aux_loss
+    else:
+      train_loss = self.retrain_loss
+    train_loss = self.retrain_loss
+
+    self.retrain_preds = tf.argmax(logits, axis=1)
+    self.retrain_preds = tf.to_int32(self.retrain_preds)
+    self.retrain_acc = tf.equal(self.retrain_preds, self.y_train)
+    self.retrain_acc = tf.to_int32(self.retrain_acc)
+    self.retrain_acc = tf.reduce_sum(self.retrain_acc)
+
+    tf_variables = [
+      var for var in tf.trainable_variables() if (
+        var.name.startswith(self.name) and "aux_head" not in var.name)]
+    self.num_vars = count_model_params(tf_variables)
+    print("Model has {0} params".format(self.num_vars))
+
+    self.retrain_op, self.retrain_lr, self.retrain_grad_norm, self.retrain_optimizer = get_train_ops(
+      train_loss,
+      tf_variables,
+      self.global_step,
+      clip_mode=self.clip_mode,
+      grad_bound=self.grad_bound,
+      l2_reg=self.l2_reg,
+      lr_init=self.lr_init,
+      lr_dec_start=self.lr_dec_start,
+      lr_dec_every=self.lr_dec_every,
+      lr_dec_rate=self.lr_dec_rate,
+      lr_cosine=self.lr_cosine,
+      lr_max=self.lr_max,
+      lr_min=self.lr_min,
+      lr_T_0=self.lr_T_0,
+      lr_T_mul=self.lr_T_mul,
+      num_train_batches=self.num_train_batches,
+      optim_algo=self.optim_algo,
+      sync_replicas=self.sync_replicas,
+      num_aggregate=self.num_aggregate,
+      num_replicas=self.num_replicas)
+
   def connect_controller(self, controller_model):
     if self.fixed_arc is None:
       self.normal_arc, self.reduce_arc = controller_model.sample_arc
@@ -816,6 +969,9 @@ class MicroChild(Model):
       self.normal_arc = fixed_arc[:4 * self.num_cells]
       self.reduce_arc = fixed_arc[4 * self.num_cells:]
 
-    self._build_train()
+    # self._build_train()
+    self._build_train_corrupt()
+    self._build_C()
+    self._build_retrain()
     self._build_valid()
     self._build_test()

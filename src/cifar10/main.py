@@ -197,13 +197,28 @@ def get_ops(images, labels):
 
   child_ops = {
     "global_step": child_model.global_step,
-    "loss": child_model.loss,
-    "train_op": child_model.train_op,
-    "lr": child_model.lr,
-    "grad_norm": child_model.grad_norm,
-    "train_acc": child_model.train_acc,
-    "optimizer": child_model.optimizer,
+    # "loss": child_model.loss,
+    # "train_op": child_model.train_op,
+    # "lr": child_model.lr,
+    # "grad_norm": child_model.grad_norm,
+    # "train_acc": child_model.train_acc,
+    # "optimizer": child_model.optimizer,
+
     "num_train_batches": child_model.num_train_batches,
+    "train_corrupt_loss": child_model.train_corrupt_loss,
+    "train_corrupt_op": child_model.train_corrupt_op,
+    "train_corrupt_lr": child_model.train_corrupt_lr,
+    "train_corrupt_grad_norm": child_model.train_corrupt_grad_norm,
+    "train_corrupt_acc": child_model.train_corrupt_acc,
+    "train_corrupt_optimizer": child_model.train_corrupt_optimizer,
+
+    "retrain_loss": child_model.retrain_loss,
+    "retrain_op": child_model.retrain_op,
+    "retrain_lr": child_model.retrain_lr,
+    "retrain_grad_norm": child_model.retrain_grad_norm,
+    "retrain_acc": child_model.retrain_acc,
+    "retrain_optimizer": child_model.retrain_optimizer,
+
   }
 
   ops = {
@@ -212,6 +227,7 @@ def get_ops(images, labels):
     "eval_every": child_model.num_train_batches * FLAGS.eval_every_epochs,
     "eval_func": child_model.eval_once,
     "num_train_batches": child_model.num_train_batches,
+    "retrain": child_model.num_train_batches,
   }
 
   return ops
@@ -248,36 +264,64 @@ def train():
       config=config, hooks=hooks, checkpoint_dir=FLAGS.output_dir) as sess:
         start_time = time.time()
         while True:
-          run_ops = [
-            child_ops["loss"],
-            child_ops["lr"],
-            child_ops["grad_norm"],
-            child_ops["train_acc"],
-            child_ops["train_op"],
-          ]
-          loss, lr, gn, tr_acc, _ = sess.run(run_ops)
-          global_step = sess.run(child_ops["global_step"])
+          if actual_step % ops["retrain"] == 0:
+            run_ops = [
+              child_ops["retrain_loss"],
+              child_ops["retrain_lr"],
+              child_ops["retrain_grad_norm"],
+              child_ops["retrain_acc"],
+              child_ops["retrain_op"],
+            ]
+            loss, lr, gn, tr_acc, _ = sess.run(run_ops)
+            global_step = sess.run(child_ops["global_step"])
 
-          if FLAGS.child_sync_replicas:
-            actual_step = global_step * FLAGS.num_aggregate
+            if FLAGS.child_sync_replicas:
+              actual_step = global_step * FLAGS.num_aggregate
+            else:
+              actual_step = global_step
+            curr_time = time.time()
+            if global_step % FLAGS.log_every == 0:
+              log_string = ""
+              log_string += "epoch={:<6d}".format(epoch)
+              log_string += "ch_step={:<6d}".format(global_step)
+              log_string += " loss={:<8.6f}".format(loss)
+              log_string += " lr={:<8.4f}".format(lr)
+              log_string += " |g|={:<8.4f}".format(gn)
+              log_string += " tr_acc={:<3d}/{:>3d}".format(
+                  tr_acc, FLAGS.batch_size)
+              log_string += " mins={:<10.2f}".format(
+                  float(curr_time - start_time) / 60)
+              print(log_string)
           else:
-            actual_step = global_step
-          epoch = actual_step // ops["num_train_batches"]
-          curr_time = time.time()
-          if global_step % FLAGS.log_every == 0:
-            log_string = ""
-            log_string += "epoch={:<6d}".format(epoch)
-            log_string += "ch_step={:<6d}".format(global_step)
-            log_string += " loss={:<8.6f}".format(loss)
-            log_string += " lr={:<8.4f}".format(lr)
-            log_string += " |g|={:<8.4f}".format(gn)
-            log_string += " tr_acc={:<3d}/{:>3d}".format(
+            run_ops = [
+              child_ops["train_corrupt_loss"],
+              child_ops["train_corrupt_lr"],
+              child_ops["train_corrupt_grad_norm"],
+              child_ops["train_corrupt_acc"],
+              child_ops["train_corrupt_op"],
+            ]
+            loss, lr, gn, tr_acc, _ = sess.run(run_ops)
+            global_step = sess.run(child_ops["global_step"])
+
+            if FLAGS.child_sync_replicas:
+              actual_step = global_step * FLAGS.num_aggregate
+            else:
+              actual_step = global_step
+            curr_time = time.time()
+            if global_step % FLAGS.log_every == 0:
+              log_string = ""
+              log_string += "epoch={:<6d}".format(epoch)
+              log_string += "ch_step={:<6d}".format(global_step)
+              log_string += " loss={:<8.6f}".format(loss)
+              log_string += " lr={:<8.4f}".format(lr)
+              log_string += " |g|={:<8.4f}".format(gn)
+              log_string += " tr_acc={:<3d}/{:>3d}".format(
                 tr_acc, FLAGS.batch_size)
-            log_string += " mins={:<10.2f}".format(
+              log_string += " mins={:<10.2f}".format(
                 float(curr_time - start_time) / 60)
-            print(log_string)
-            
-          if actual_step % ops["eval_every"] == 0:
+              print(log_string)
+          epoch = actual_step // ops["num_train_batches"] // 2
+          if actual_step % (ops["eval_every"] * 2) == 0:
             if (FLAGS.controller_training and
                 epoch % FLAGS.controller_train_every == 0):
               print("Epoch {}: Training controller".format(epoch))
