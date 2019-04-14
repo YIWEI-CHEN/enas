@@ -104,6 +104,16 @@ def read_data_corrupt_label(data_path, num_valids=5000):
   ]
   images["train"], labels["train"] = _read_data(data_path, train_files)
 
+
+  if num_valids:
+    images["valid"] = images["train"][-num_valids:]
+    labels["valid"] = labels["train"][-num_valids:]
+
+    images["train"] = images["train"][:-num_valids]
+    labels["train"] = labels["train"][:-num_valids]
+  else:
+    images["valid"], labels["valid"] = None, None
+
   # Corrupt the labels
   gold_fraction = 0.05
   cifar_labels = labels["train"]
@@ -114,14 +124,11 @@ def read_data_corrupt_label(data_path, num_valids=5000):
   for i in range(num_silver):
     cifar_labels[i] = np.random.choice(num_classes, p=corruption_matrix[cifar_labels[i]])
 
-  if num_valids:
-    images["valid"] = images["train"][-num_valids:]
-    labels["valid"] = labels["train"][-num_valids:]
+  images['train_silver'] = images['train'][:num_silver]
+  labels['train_silver'] = labels['train'][:num_silver]
 
-    images["train"] = images["train"][:-num_valids]
-    labels["train"] = labels["train"][:-num_valids]
-  else:
-    images["valid"], labels["valid"] = None, None
+  images['train_gold'] = images['train'][num_silver:]
+  labels['train_gold'] = labels['train'][num_silver:]
 
   images["test"], labels["test"] = _read_data(data_path, test_file)
 
