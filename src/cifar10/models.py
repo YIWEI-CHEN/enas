@@ -141,6 +141,56 @@ class Model(object):
         allow_smaller_final_batch=True,
       )
 
+      # pure silver train data
+      x_train, y_train = tf.train.shuffle_batch(
+        [images["train_silver"], labels["train_silver"]],
+        batch_size=self.batch_size,
+        capacity=50000,
+        enqueue_many=True,
+        min_after_dequeue=0,
+        num_threads=16,
+        seed=self.seed,
+        allow_smaller_final_batch=True,
+      )
+      self.x_train_pure_silver = tf.map_fn(_pre_process, x_train, back_prop=False)
+      self.y_train_pure_silver = y_train
+
+      # get a mixed batch of gold and silver train data
+      gold_fraction = float(len(labels["train_gold"])) / (len(labels["train"]))
+      batch_size_gold = int(self.batch_size * gold_fraction)
+      batch_size_silver = self.batch_size - batch_size_gold
+
+      x_train, y_train = tf.train.shuffle_batch(
+        [images["train_silver"], labels["train_silver"]],
+        batch_size=batch_size_silver,
+        capacity=50000,
+        enqueue_many=True,
+        min_after_dequeue=0,
+        num_threads=16,
+        seed=self.seed,
+        allow_smaller_final_batch=True,
+      )
+      self.x_train_silver = tf.map_fn(_pre_process, x_train, back_prop=False)
+      self.y_train_silver = y_train
+
+      # gold train data
+      x_train, y_train = tf.train.shuffle_batch(
+        [images["train_gold"], labels["train_gold"]],
+        batch_size=batch_size_gold,
+        capacity=50000,
+        enqueue_many=True,
+        min_after_dequeue=0,
+        num_threads=16,
+        seed=self.seed,
+        allow_smaller_final_batch=True,
+      )
+      self.x_train_gold = tf.map_fn(_pre_process, x_train, back_prop=False)
+      self.y_train_gold = y_train
+
+      # whole gold train data
+      self.whole_x_train_gold = tf.map_fn(_pre_process, images["train_gold"], back_prop=False)
+      self.whole_y_train_gold = labels["train_gold"]
+
     # cache images and labels
     self.images = images
     self.labels = labels

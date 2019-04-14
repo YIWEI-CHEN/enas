@@ -112,13 +112,6 @@ class MicroChild(Model):
     if self.use_aux_heads:
       self.aux_head_indices = [self.pool_layers[-1] + 1]
 
-    # TODO
-    self.x_train_silver = self.x_train
-    self.y_train_silver = self.y_train
-    # TODO
-    self.x_train_gold = self.x_train
-    self.y_train_gold = self.y_train
-
   def _factorized_reduction(self, x, out_filters, stride, is_training):
     """Reduces the shape of x without information loss due to striding."""
     assert out_filters % 2 == 0, (
@@ -817,27 +810,29 @@ class MicroChild(Model):
 
   def _build_C(self):
     # //////////////////////// estimate C ////////////////////////
-    logits = self._model(self.x_train_gold, False, reuse=True)
+    print("-" * 80)
+    print("Build C_hat graph")
+    logits = self._model(self.whole_x_train_gold, False, reuse=True)
     probs = tf.nn.softmax(logits)
     # probs = F.softmax(net(V(torch.from_numpy(gold['x']).cuda(), volatile=True))).data.cpu().numpy()
     num_classes = 10
-    self.C_hat = tf.Variable(tf.zeros([num_classes, num_classes]))
+    self.C_hat = tf.Variable(tf.zeros([num_classes, num_classes]), tf.float32)
     # C_hat = np.zeros((num_classes, num_classes))
     for label in range(num_classes):
-      indices = np.arange(len(self.y_train_gold))[self.y_train_gold == label]
-      self.C_hat[label] = np.mean(probs[indices], axis=0, keepdims=True)
+      indices = np.arange(len(self.whole_y_train_gold))[self.whole_y_train_gold == label]
+      tf.assign( self.C_hat[label], tf.reduce_mean(tf.gather(probs, indices), axis=0, keepdims=True))
 
   def _build_train_corrupt(self):
     print("-" * 80)
     print("Build train graph for silver data")
-    logits = self._model(self.x_train_silver, is_training=True)
+    logits = self._model(self.x_train_pure_silver, is_training=True)
     log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
-      logits=logits, labels=self.y_train_silver)
+      logits=logits, labels=self.y_train_pure_silver)
     self.train_corrupt_loss = tf.reduce_mean(log_probs)
 
     if self.use_aux_heads:
       log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
-        logits=self.aux_logits, labels=self.y_train_silver)
+        logits=self.aux_logits, labels=self.y_train_pure_silver)
       self.aux_loss = tf.reduce_mean(log_probs)
       train_loss = self.train_corrupt_loss + 0.4 * self.aux_loss
     else:
@@ -845,7 +840,7 @@ class MicroChild(Model):
 
     self.train_corrupt_preds = tf.argmax(logits, axis=1)
     self.train_corrupt_preds = tf.to_int32(self.train_corrupt_preds)
-    self.train_corrupt_acc = tf.equal(self.train_corrupt_preds, self.y_train_silver)
+    self.train_corrupt_acc = tf.equal(self.train_corrupt_preds, self.y_train_pure_silver)
     self.train_corrupt_acc = tf.to_int32(self.train_corrupt_acc)
     self.train_corrupt_acc = tf.reduce_sum(self.train_corrupt_acc)
 
@@ -877,35 +872,24 @@ class MicroChild(Model):
       num_aggregate=self.num_aggregate,
       num_replicas=self.num_replicas)
 
-  def get_silver(self, data):
-    # TODO
-    return data
-
-  def get_gold(self, data):
-    # TODO
-    return data
-
   def _build_retrain(self):
     print("-" * 80)
-    print("Build re-train graph for silver and gold data")
+    print("Build retrain graph for silver and gold data")
     # forward
-    data_s = self.get_silver(self.x_train)
-    target_s = self.get_silver(self.y_train)
-    data_g = self.get_gold(self.x_train)
-    target_g = self.get_gold(self.y_train)
+    data_s = self.x_train_silver
+    target_s = self.y_train_silver
+    data_g = self.x_train_gold
+    target_g = self.y_train_gold
 
-    loss_s = 0
-    if len(data_s) > 0:
-      output_s = self._model(data_s, is_training=True)
-      pre1 = self._C_hat.t()[target_s]
-      pre2 = tf.math.multiply(tf.nn.softmax(output_s), pre1)
-      loss_s = -(tf.math.log(pre2).sum(1)).sum(0)
-    loss_g = 0
-    if len(data_g) > 0:
-      output_g = self._model(data_g, is_training=True)
-      log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
-        logits=output_g, labels=target_g)
-      loss_g = tf.reduce_mean(log_probs)
+    output_s = self._model(data_s, is_training=True)
+    pre1 = self._C_hat.t()[target_s]
+    pre2 = tf.math.multiply(tf.nn.softmax(output_s), pre1)
+    loss_s = -(tf.math.log(pre2).sum(1)).sum(0)
+
+    output_g = self._model(data_g, is_training=True)
+    log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
+      logits=output_g, labels=target_g)
+    loss_g = tf.reduce_mean(log_probs)
     self.retrain_loss = (loss_g + loss_s) / self.batch_size
     # if silver_len > 0:
     #   output_s = net(data_s)
