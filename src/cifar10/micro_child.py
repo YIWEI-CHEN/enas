@@ -870,52 +870,63 @@ class MicroChild(Model):
       optim_algo=self.optim_algo,
       sync_replicas=self.sync_replicas,
       num_aggregate=self.num_aggregate,
-      num_replicas=self.num_replicas)
+      num_replicas=self.num_replicas,
+      opt_name='train_opt')
 
   def _build_retrain(self):
-    print("-" * 80)
-    print("Build retrain graph for silver and gold data")
     # forward
     data_s = self.x_train_silver
     target_s = self.y_train_silver
     data_g = self.x_train_gold
     target_g = self.y_train_gold
 
-    output_s = self._model(data_s, is_training=True)
-    pre1 = self._C_hat.t()[target_s]
-    pre2 = tf.math.multiply(tf.nn.softmax(output_s), pre1)
-    loss_s = -(tf.math.log(pre2).sum(1)).sum(0)
+    print("-" * 80)
+    print("Build retrain graph for silver data")
+    output_s = self._model(data_s, is_training=True, reuse=True)
+    pre1 = tf.gather(tf.transpose(self.C_hat), target_s)
+    pre2 = tf.multiply(tf.nn.softmax(output_s), pre1)
+    loss_s = -tf.reduce_sum(tf.reduce_sum(tf.log(pre2), axis=1), axis=0)
 
-    output_g = self._model(data_g, is_training=True)
+    if self.use_aux_heads:
+      log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
+        logits=self.aux_logits, labels=target_s)
+      aux_loss_s = tf.reduce_mean(log_probs)
+      loss_s = loss_s + 0.4 * aux_loss_s
+
+    self.loss_s = loss_s
+
+    preds_s = tf.argmax(output_s, axis=1)
+    preds_s = tf.to_int32(preds_s)
+    acc_s = tf.equal(preds_s, target_s)
+    acc_s = tf.to_int32(acc_s)
+    acc_s = tf.reduce_sum(acc_s)
+
+    print("-" * 80)
+    print("Build retrain graph for gold data")
+    output_g = self._model(data_g, is_training=True, reuse=True)
     log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
       logits=output_g, labels=target_g)
     loss_g = tf.reduce_mean(log_probs)
-    self.retrain_loss = (loss_g + loss_s) / self.batch_size
-    # if silver_len > 0:
-    #   output_s = net(data_s)
-    #   pre1 = C_hat.t()[torch.cuda.LongTensor(target_s.data)]
-    #   pre2 = torch.mul(F.softmax(output_s), pre1)
-    #   loss_s = -(torch.log(pre2.sum(1))).sum(0)
-    # loss_g = 0
-    # if gold_len > 0:
-    #   output_g = net(data_g)
-    #   loss_g = F.cross_entropy(output_g, target_g, size_average=False)
-    logits = self._model(self.x_train, is_training=True)
-    #
+
     if self.use_aux_heads:
       log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
-        logits=self.aux_logits, labels=self.y_train)
-      self.aux_loss = tf.reduce_mean(log_probs)
-      train_loss = self.retrain_loss + 0.4 * self.aux_loss
-    else:
-      train_loss = self.retrain_loss
-    train_loss = self.retrain_loss
+        logits=self.aux_logits, labels=target_g)
+      aux_loss_g = tf.reduce_mean(log_probs)
+      loss_g = loss_g + 0.4 * aux_loss_g
 
-    self.retrain_preds = tf.argmax(logits, axis=1)
-    self.retrain_preds = tf.to_int32(self.retrain_preds)
-    self.retrain_acc = tf.equal(self.retrain_preds, self.y_train)
-    self.retrain_acc = tf.to_int32(self.retrain_acc)
-    self.retrain_acc = tf.reduce_sum(self.retrain_acc)
+    self.loss_g = loss_g
+
+    preds_g = tf.argmax(output_g, axis=1)
+    preds_g = tf.to_int32(preds_g)
+    acc_g = tf.equal(preds_g, target_g)
+    acc_g = tf.to_int32(acc_g)
+    acc_g = tf.reduce_sum(acc_g)
+
+    self.retrain_loss = (loss_g + loss_s) / self.batch_size
+    # tf.print(loss_g, data_g)
+    # tf.print(loss_s,  output_stream=sys.stderr)
+    self.retrain_preds = preds_s + preds_g
+    self.retrain_acc = acc_s + acc_g
 
     tf_variables = [
       var for var in tf.trainable_variables() if (
@@ -924,7 +935,7 @@ class MicroChild(Model):
     print("Model has {0} params".format(self.num_vars))
 
     self.retrain_op, self.retrain_lr, self.retrain_grad_norm, self.retrain_optimizer = get_train_ops(
-      train_loss,
+      self.retrain_loss,
       tf_variables,
       self.global_step,
       clip_mode=self.clip_mode,
@@ -943,7 +954,8 @@ class MicroChild(Model):
       optim_algo=self.optim_algo,
       sync_replicas=self.sync_replicas,
       num_aggregate=self.num_aggregate,
-      num_replicas=self.num_replicas)
+      num_replicas=self.num_replicas,
+      opt_name='retrain_opt')
 
   def connect_controller(self, controller_model):
     if self.fixed_arc is None:
