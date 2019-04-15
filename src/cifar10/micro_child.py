@@ -814,13 +814,15 @@ class MicroChild(Model):
     print("Build C_hat graph")
     logits = self._model(self.whole_x_train_gold, False, reuse=True)
     probs = tf.nn.softmax(logits)
-    # probs = F.softmax(net(V(torch.from_numpy(gold['x']).cuda(), volatile=True))).data.cpu().numpy()
     num_classes = 10
-    self.C_hat = tf.Variable(tf.zeros([num_classes, num_classes]), tf.float32)
-    # C_hat = np.zeros((num_classes, num_classes))
+    all_prob_sum = []
+
     for label in range(num_classes):
-      indices = np.arange(len(self.whole_y_train_gold))[self.whole_y_train_gold == label]
-      tf.assign( self.C_hat[label], tf.reduce_mean(tf.gather(probs, indices), axis=0, keepdims=True))
+      mask = tf.equal(self.whole_y_train_gold, label)
+      indices = tf.boolean_mask(np.arange(len(self.whole_y_train_gold)), mask)
+      prob_sum = tf.reduce_mean(tf.gather(probs, indices), axis=0, keepdims=True)
+      all_prob_sum.append(prob_sum)
+    self.C_hat = tf.concat(all_prob_sum, axis=0)
 
   def _build_train_corrupt(self):
     print("-" * 80)
@@ -886,7 +888,6 @@ class MicroChild(Model):
     pre1 = tf.gather(tf.transpose(self.C_hat), target_s)
     pre2 = tf.multiply(tf.nn.softmax(output_s), pre1)
     loss_s = -tf.reduce_sum(tf.reduce_sum(tf.log(pre2), axis=1), axis=0)
-
     if self.use_aux_heads:
       log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
         logits=self.aux_logits, labels=target_s)
@@ -894,6 +895,7 @@ class MicroChild(Model):
       loss_s = loss_s + 0.4 * aux_loss_s
 
     self.loss_s = loss_s
+    loss_s = tf.Print(loss_s, [loss_s], "silver loss: ")
 
     preds_s = tf.argmax(output_s, axis=1)
     preds_s = tf.to_int32(preds_s)
@@ -901,7 +903,6 @@ class MicroChild(Model):
     acc_s = tf.to_int32(acc_s)
     acc_s = tf.reduce_sum(acc_s)
 
-    print("-" * 80)
     print("Build retrain graph for gold data")
     output_g = self._model(data_g, is_training=True, reuse=True)
     log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -915,6 +916,7 @@ class MicroChild(Model):
       loss_g = loss_g + 0.4 * aux_loss_g
 
     self.loss_g = loss_g
+    loss_g = tf.Print(loss_g, [loss_g], "gold loss: ")
 
     preds_g = tf.argmax(output_g, axis=1)
     preds_g = tf.to_int32(preds_g)
