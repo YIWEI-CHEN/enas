@@ -108,7 +108,8 @@ def get_train_ops(
     num_aggregate=None,
     num_replicas=None,
     get_grad_norms=False,
-    moving_average=None):
+    moving_average=None,
+    opt_name='train'):
   """
   Args:
     clip_mode: "global", "norm", or None.
@@ -211,12 +212,12 @@ def get_train_ops(
 
   if optim_algo == "momentum":
     opt = tf.train.MomentumOptimizer(
-      learning_rate, 0.9, use_locking=True, use_nesterov=True)
+      learning_rate, 0.9, use_locking=True, use_nesterov=True, name=opt_name)
   elif optim_algo == "sgd":
-    opt = tf.train.GradientDescentOptimizer(learning_rate, use_locking=True)
+    opt = tf.train.GradientDescentOptimizer(learning_rate, use_locking=True, name=opt_name)
   elif optim_algo == "adam":
     opt = tf.train.AdamOptimizer(learning_rate, beta1=0.0, epsilon=1e-3,
-                                 use_locking=True)
+                                 use_locking=True, name=opt_name)
   else:
     raise ValueError("Unknown optim_algo {}".format(optim_algo))
 
@@ -241,4 +242,3 @@ def get_train_ops(
     return train_op, learning_rate, grad_norm, opt, grad_norms
   else:
     return train_op, learning_rate, grad_norm, opt
-
