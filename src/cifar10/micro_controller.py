@@ -267,6 +267,7 @@ class MicroController(Controller):
       optim_algo=self.optim_algo,
       sync_replicas=self.sync_replicas,
       num_aggregate=self.num_aggregate,
-      num_replicas=self.num_replicas)
+      num_replicas=self.num_replicas,
+      opt_name='controller_train')
 
     self.skip_rate = tf.constant(0.0, dtype=tf.float32)
