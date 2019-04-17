@@ -885,9 +885,13 @@ class MicroChild(Model):
     print("-" * 80)
     print("Build retrain graph for silver data")
     output_s = self._model(data_s, is_training=True, reuse=True)
+    # output_s = tf.Print(output_s, [output_s, tf.shape(output_s)], "output_s: ")
+    # target_s = tf.Print(target_s, [target_s, tf.shape(target_s)], "target_s: ")
     pre1 = tf.gather(tf.transpose(self.C_hat), target_s)
+    # pre1 = tf.Print(pre1, [pre1, tf.shape(pre1)], "pre1: ")
     pre2 = tf.multiply(tf.nn.softmax(output_s), pre1)
-    loss_s = -tf.reduce_sum(tf.reduce_sum(tf.log(pre2), axis=1), axis=0)
+    # pre2 = tf.Print(pre2, [pre2, tf.shape(pre2)], "pre2: ")
+    loss_s = -tf.reduce_sum(tf.log(tf.reduce_sum(pre2, axis=1)), axis=0)
     if self.use_aux_heads:
       log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
         logits=self.aux_logits, labels=target_s)
