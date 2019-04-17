@@ -899,7 +899,7 @@ class MicroChild(Model):
       loss_s = loss_s + 0.4 * aux_loss_s
 
     self.loss_s = loss_s
-    loss_s = tf.Print(loss_s, [loss_s], "silver loss: ")
+    # loss_s = tf.Print(loss_s, [loss_s], "silver loss: ")
 
     preds_s = tf.argmax(output_s, axis=1)
     preds_s = tf.to_int32(preds_s)
@@ -920,7 +920,7 @@ class MicroChild(Model):
       loss_g = loss_g + 0.4 * aux_loss_g
 
     self.loss_g = loss_g
-    loss_g = tf.Print(loss_g, [loss_g], "gold loss: ")
+    # loss_g = tf.Print(loss_g, [loss_g], "gold loss: ")
 
     preds_g = tf.argmax(output_g, axis=1)
     preds_g = tf.to_int32(preds_g)
@@ -929,8 +929,6 @@ class MicroChild(Model):
     acc_g = tf.reduce_sum(acc_g)
 
     self.retrain_loss = (loss_g + loss_s) / self.batch_size
-    # tf.print(loss_g, data_g)
-    # tf.print(loss_s,  output_stream=sys.stderr)
     self.retrain_preds = preds_s + preds_g
     self.retrain_acc = acc_s + acc_g
 
