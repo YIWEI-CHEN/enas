@@ -3,6 +3,7 @@ import sys
 
 import numpy as np
 import tensorflow as tf
+import math
 
 from src.cifar10.image_ops import conv
 from src.cifar10.image_ops import fully_connected
@@ -157,7 +158,7 @@ class Model(object):
 
       # get a mixed batch of gold and silver train data
       gold_fraction = float(len(labels["train_gold"])) / (len(labels["train"]))
-      batch_size_gold = int(self.batch_size * gold_fraction)
+      batch_size_gold = int(math.ceil(self.batch_size * gold_fraction)) + 1
       batch_size_silver = self.batch_size - batch_size_gold
 
       x_train, y_train = tf.train.shuffle_batch(
