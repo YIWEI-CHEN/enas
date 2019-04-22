@@ -2,15 +2,15 @@
 
 export PYTHONPATH="$(pwd)"
 
-fixed_arc="0 1 1 1 1 3 0 0 1 4 1 1 1 3 0 1 0 1 0 1"
-fixed_arc="$fixed_arc 0 2 1 1 1 4 1 4 2 2 2 1 2 3 2 4 1 3 1 2"
+fixed_arc="1 1 0 1 2 1 1 1 2 0 3 0 2 4 1 0 5 0 1 0"
+fixed_arc="$fixed_arc 1 4 0 0 0 0 0 3 2 1 0 0 4 4 2 1 2 0 3 3"
 
 python src/cifar10/main.py \
   --data_format="NCHW" \
   --search_for="micro" \
   --reset_output_dir \
   --data_path="data/cifar10" \
-  --output_dir="0419/micro_final_noise_final_arch" \
+  --output_dir="0422/micro_final_uniform_noise_09_final_arch" \
   --batch_size=144 \
   --num_epochs=630 \
   --log_every=50 \
