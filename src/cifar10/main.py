@@ -219,8 +219,10 @@ def get_ops(images, labels):
 
 def train():
   if FLAGS.child_fixed_arc is None:
+    # images, labels = read_data(FLAGS.data_path)
     images, labels = read_data_corrupt_label(FLAGS.data_path)
   else:
+    # images, labels = read_data(FLAGS.data_path, num_valids=0)
     images, labels = read_data_corrupt_label(FLAGS.data_path, num_valids=0)
 
   g = tf.Graph()

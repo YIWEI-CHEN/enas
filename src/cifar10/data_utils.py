@@ -18,6 +18,13 @@ def flip_labels_C(corruption_prob):
     C[i][np.random.choice(row_indices[row_indices != i])] = corruption_prob
   return C
 
+def uniform_mix_C(mixing_ratio):
+    '''
+    returns a linear interpolation of a uniform matrix and an identity matrix
+    '''
+    return mixing_ratio * np.full((num_classes, num_classes), 1.0 / num_classes) + \
+           (1 - mixing_ratio) * np.eye(num_classes)
+
 def _read_data(data_path, train_files):
   """Reads CIFAR-10 format data. Always returns NHWC format.
 
@@ -110,7 +117,9 @@ def read_data_corrupt_label(data_path, num_valids=5000):
   num_gold = int(len(cifar_labels) * gold_fraction)
   num_silver = len(cifar_labels) - num_gold
   num_classes = 10
-  corruption_matrix = flip_labels_C(0.5)
+  corruption_matrix = uniform_mix_C(0.9)
+  print('corruption matrix:\n{}'.format(corruption_matrix))
+
   for i in range(num_silver):
     cifar_labels[i] = np.random.choice(num_classes, p=corruption_matrix[cifar_labels[i]])
 
