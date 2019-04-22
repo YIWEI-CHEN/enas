@@ -117,7 +117,7 @@ def read_data_corrupt_label(data_path, num_valids=5000):
   num_gold = int(len(cifar_labels) * gold_fraction)
   num_silver = len(cifar_labels) - num_gold
   num_classes = 10
-  corruption_matrix = uniform_mix_C(0.9)
+  corruption_matrix = uniform_mix_C(0.8)
   print('corruption matrix:\n{}'.format(corruption_matrix))
 
   for i in range(num_silver):
