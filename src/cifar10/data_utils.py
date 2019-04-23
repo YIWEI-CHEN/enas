@@ -112,7 +112,7 @@ def read_data_corrupt_label(data_path, num_valids=5000):
   images["train"], labels["train"] = _read_data(data_path, train_files)
 
   # Corrupt the labels
-  gold_fraction = 0.05
+  gold_fraction = 0.0
   cifar_labels = labels["train"]
   num_gold = int(len(cifar_labels) * gold_fraction)
   num_silver = len(cifar_labels) - num_gold
