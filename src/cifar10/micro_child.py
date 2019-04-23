@@ -700,8 +700,20 @@ class MicroChild(Model):
     print("-" * 80)
     print("Build train graph")
     logits = self._model(self.x_train, is_training=True)
-    log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
-      logits=logits, labels=self.y_train)
+    # log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(
+    #   logits=logits, labels=self.y_train)
+    # self.loss = tf.reduce_mean(log_probs)
+
+    num_classes = 10.0
+    alpha = 1.0
+    const = tf.log((alpha + 1) / alpha)
+
+    softmax_logits = tf.nn.softmax(logits)
+    softmax_logits = tf.log(tf.add(softmax_logits, alpha))
+    one_hot_y_train = tf.one_hot(self.y_train, int(num_classes))
+    pt = tf.multiply(softmax_logits, one_hot_y_train)
+    pj = tf.subtract(softmax_logits, pt)
+    log_probs = const - tf.reduce_sum(pt, axis=1) + tf.reduce_sum(pj, axis=1) / (num_classes - 1)
     self.loss = tf.reduce_mean(log_probs)
 
     if self.use_aux_heads:
