@@ -5,6 +5,8 @@ from tensorflow.python.training import moving_averages
 from src.common_ops import create_weight
 from src.common_ops import create_bias
 
+flags = tf.app.flags
+FLAGS = flags.FLAGS
 
 def drop_path(x, keep_prob):
   """Drops out a whole example hiddenstate with the specified probability."""
@@ -20,7 +22,7 @@ def drop_path(x, keep_prob):
 
 
 def conv(x, filter_size, out_filters, stride, name="conv", padding="SAME",
-         data_format="NHWC", seed=None):
+         data_format="NHWC", seed=FLAGS.seed):
   """
   Args:
     stride: [h_stride, w_stride].
@@ -40,7 +42,7 @@ def conv(x, filter_size, out_filters, stride, name="conv", padding="SAME",
   return x
 
 
-def fully_connected(x, out_size, name="fc", seed=None):
+def fully_connected(x, out_size, name="fc", seed=FLAGS.seed):
   in_size = x.get_shape()[-1].value
   with tf.variable_scope(name):
     w = create_weight("w", [in_size, out_size], seed=seed)

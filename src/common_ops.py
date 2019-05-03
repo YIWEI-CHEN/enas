@@ -1,6 +1,8 @@
 import numpy as np
 import tensorflow as tf
 
+flags = tf.app.flags
+FLAGS = flags.FLAGS
 
 def lstm(x, prev_c, prev_h, w):
   ifog = tf.matmul(tf.concat([x, prev_h], axis=1), w)
@@ -24,7 +26,7 @@ def stack_lstm(x, prev_c, prev_h, w):
   return next_c, next_h
 
 
-def create_weight(name, shape, initializer=None, trainable=True, seed=None):
+def create_weight(name, shape, initializer=None, trainable=True, seed=FLAGS.seed):
   if initializer is None:
     initializer = tf.contrib.keras.initializers.he_normal(seed=seed)
   return tf.get_variable(name, shape, initializer=initializer, trainable=trainable)

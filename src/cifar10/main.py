@@ -8,6 +8,7 @@ import shutil
 import sys
 import time
 import GPUtil
+import random
 
 import numpy as np
 import tensorflow as tf
@@ -27,6 +28,13 @@ from src.cifar10.general_child import GeneralChild
 from src.cifar10.micro_controller import MicroController
 from src.cifar10.micro_child import MicroChild
 
+# fix random seed
+seed = 42
+np.random.seed(seed)
+random.seed(seed)
+tf.set_random_seed(seed)
+os.environ["TF_CUDNN_CONVOLUTION_BWD_FILTER_ALGO_DETERMINISTIC"] = '1'
+
 deviceIDs = GPUtil.getFirstAvailable()
 print('Available GPU: {}'.format(deviceIDs))
 os.environ["CUDA_VISIBLE_DEVICES"]=','.join(map(str, deviceIDs))
@@ -39,6 +47,7 @@ DEFINE_string("data_path", "", "")
 DEFINE_string("output_dir", "", "")
 DEFINE_string("data_format", "NHWC", "'NHWC' or 'NCWH'")
 DEFINE_string("search_for", None, "Must be [macro|micro]")
+
 
 DEFINE_integer("batch_size", 32, "")
 
@@ -94,6 +103,17 @@ DEFINE_boolean("controller_use_critic", False, "")
 
 DEFINE_integer("log_every", 50, "How many steps to log")
 DEFINE_integer("eval_every_epochs", 1, "How many epochs to eval")
+
+# final fit loss function
+DEFINE_string("loss", "cce", "cce or robust")
+DEFINE_float("alpha", 0.1, "")
+DEFINE_float("noise_level", 0.28, "")
+DEFINE_string("noise_type", "clean", "perm, sym, clean")
+DEFINE_boolean("validation_for_test", False, "")
+DEFINE_string("scope", "both", "both or train")
+
+# Give random seed
+DEFINE_integer("seed", seed, "")
 
 def get_ops(images, labels):
   """
@@ -219,11 +239,11 @@ def get_ops(images, labels):
 
 def train():
   if FLAGS.child_fixed_arc is None:
-    # images, labels = read_data(FLAGS.data_path)
-    images, labels = read_data_corrupt_label(FLAGS.data_path)
+    images, labels = read_data(FLAGS.data_path) if FLAGS.noise_type == 'clean' \
+      else read_data_corrupt_label(FLAGS.data_path)
   else:
-    # images, labels = read_data(FLAGS.data_path, num_valids=0)
-    images, labels = read_data_corrupt_label(FLAGS.data_path, num_valids=0)
+    images, labels = read_data(FLAGS.data_path, num_valids=0) if FLAGS.noise_type == 'clean' \
+      else read_data_corrupt_label(FLAGS.data_path, num_valids=0)
 
   g = tf.Graph()
   with g.as_default():
