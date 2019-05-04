@@ -26,7 +26,7 @@ def stack_lstm(x, prev_c, prev_h, w):
   return next_c, next_h
 
 
-def create_weight(name, shape, initializer=None, trainable=True, seed=FLAGS.seed):
+def create_weight(name, shape, initializer=None, trainable=True, seed=42):
   if initializer is None:
     initializer = tf.contrib.keras.initializers.he_normal(seed=seed)
   return tf.get_variable(name, shape, initializer=initializer, trainable=trainable)

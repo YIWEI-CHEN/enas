@@ -22,7 +22,7 @@ def drop_path(x, keep_prob):
 
 
 def conv(x, filter_size, out_filters, stride, name="conv", padding="SAME",
-         data_format="NHWC", seed=FLAGS.seed):
+         data_format="NHWC", seed=42):
   """
   Args:
     stride: [h_stride, w_stride].
@@ -42,7 +42,7 @@ def conv(x, filter_size, out_filters, stride, name="conv", padding="SAME",
   return x
 
 
-def fully_connected(x, out_size, name="fc", seed=FLAGS.seed):
+def fully_connected(x, out_size, name="fc", seed=42):
   in_size = x.get_shape()[-1].value
   with tf.variable_scope(name):
     w = create_weight("w", [in_size, out_size], seed=seed)
