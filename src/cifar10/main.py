@@ -35,10 +35,6 @@ random.seed(seed)
 tf.set_random_seed(seed)
 os.environ["TF_CUDNN_CONVOLUTION_BWD_FILTER_ALGO_DETERMINISTIC"] = '1'
 
-deviceIDs = GPUtil.getFirstAvailable()
-print('Available GPU: {}'.format(deviceIDs))
-os.environ["CUDA_VISIBLE_DEVICES"]=','.join(map(str, deviceIDs))
-
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
@@ -111,9 +107,16 @@ DEFINE_float("noise_level", 0.28, "")
 DEFINE_string("noise_type", "clean", "perm, sym, clean")
 DEFINE_boolean("validation_for_test", False, "")
 DEFINE_string("scope", "both", "both or train")
+DEFINE_integer("gpu", 0, "")
 
 # Give random seed
 DEFINE_integer("seed", seed, "")
+
+
+# Setup GPU
+# deviceIDs = GPUtil.getFirstAvailable()
+# print('Available GPU: {}'.format(deviceIDs))
+# os.environ["CUDA_VISIBLE_DEVICES"]=','.join(map(str, deviceIDs))
 
 def get_ops(images, labels):
   """
@@ -379,6 +382,7 @@ def main(_):
   sys.stdout = Logger(log_file)
 
   utils.print_user_flags()
+  os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.gpu)
   train()
 
 
