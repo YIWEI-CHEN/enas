@@ -107,3 +107,5 @@ ENV/
 
 # pytorch
 .idea
+logs
+data/cifar10
