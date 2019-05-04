@@ -245,8 +245,12 @@ def train():
     images, labels = read_data(FLAGS.data_path) if FLAGS.noise_type == 'clean' \
       else read_data_corrupt_label(FLAGS.data_path)
   else:
-    images, labels = read_data(FLAGS.data_path, num_valids=0) if FLAGS.noise_type == 'clean' \
-      else read_data_corrupt_label(FLAGS.data_path, num_valids=0)
+    if FLAGS.validation_for_test:
+      images, labels = read_data(FLAGS.data_path, num_valids=5000) if FLAGS.noise_type == 'clean' \
+        else read_data_corrupt_label(FLAGS.data_path, num_valids=5000)
+    else:
+      images, labels = read_data(FLAGS.data_path, num_valids=0) if FLAGS.noise_type == 'clean' \
+        else read_data_corrupt_label(FLAGS.data_path, num_valids=0)
 
   g = tf.Graph()
   with g.as_default():
