@@ -33,6 +33,7 @@ data_seed = 1
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
+gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
 
 DEFINE_boolean("reset_output_dir", False, "Delete output_dir if exists.")
 DEFINE_string("data_path", "", "")
@@ -272,7 +273,7 @@ def train():
 
     print("-" * 80)
     print("Starting session")
-    config = tf.ConfigProto(allow_soft_placement=True)
+    config = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options)
     with tf.train.SingularMonitoredSession(
       config=config, hooks=hooks, checkpoint_dir=FLAGS.output_dir) as sess:
         start_time = time.time()
