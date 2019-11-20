@@ -2,8 +2,8 @@
 
 export PYTHONPATH="$(pwd)"
 
-fixed_arc="1 4 1 4 1 2 0 3 0 1 3 0 2 0 2 1 2 1 2 2"
-fixed_arc="$fixed_arc 0 0 0 4 2 3 1 2 1 0 3 2 3 4 4 3 5 4 2 3"
+fixed_arc="1 2 1 2 1 1 0 4 0 2 1 4 4 3 2 0 1 0 4 3"
+fixed_arc="$fixed_arc 0 1 0 1 2 0 1 1 2 1 1 2 4 0 4 4 3 3 5 2"
 DATE=`date +%m%d`
 
 # loss function
@@ -17,9 +17,9 @@ SCOPE="both"
 
 # others
 VALID_FOR_TEST="True"
-GPU="2"
+GPU="5"
 RANK="R6"
-MODELID="epoch90"
+MODELID="epoch60"
 
 if [ "${TYPE}" != "clean" ]
 then
