@@ -106,7 +106,7 @@ DEFINE_float("alpha", 0.1, "")
 DEFINE_float("noise_level", 0.28, "")
 DEFINE_string("noise_type", "clean", "perm, sym, clean")
 DEFINE_boolean("validation_for_test", False, "")
-DEFINE_string("scope", "both", "both or train")
+DEFINE_string("scope", "both", "both, train, valid")
 DEFINE_integer("gpu", 0, "")
 
 # Give random seed
@@ -247,7 +247,7 @@ def train():
     if FLAGS.validation_for_test:
       images, labels = read_data_corrupt_label(FLAGS.data_path, num_valids=5000)
     else:
-      images, labels = read_data_corrupt_label(FLAGS.data_path, num_valids=0)
+      images, labels = read_data_corrupt_label(FLAGS.data_path, num_valids=5000)
 
   g = tf.Graph()
   with g.as_default():
@@ -359,8 +359,8 @@ def train():
                 print("-" * 80)
 
             print("Epoch {}: Eval".format(epoch))
-            if FLAGS.child_fixed_arc is None:
-              ops["eval_func"](sess, "valid")
+            # if FLAGS.child_fixed_arc is None:
+            ops["eval_func"](sess, "valid")
             ops["eval_func"](sess, "test")
 
           if epoch >= FLAGS.num_epochs:

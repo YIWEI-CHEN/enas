@@ -44,6 +44,8 @@ def add_noise(cifar_labels):
 
     for i in range(num_labels):
       cifar_labels[i] = np.random.choice(num_classes, p=corruption_matrix[cifar_labels[i]])
+  elif FLAGS.noise_type == 'clean':
+    print('Use clean labels')
   return cifar_labels
 
 def _read_data(data_path, train_files):
@@ -147,6 +149,9 @@ def read_data_corrupt_label(data_path, num_valids=5000):
     labels["valid"] = add_noise(labels["valid"])
   elif FLAGS.scope == 'train':
     labels["train"] = add_noise(labels["train"])
+  elif FLAGS.scope == 'valid':
+    print('Adding noise to validation')
+    labels["valid"] = add_noise(labels["valid"])
 
   if FLAGS.validation_for_test:
     images["test"], labels["test"] = images["valid"], labels["valid"]
