@@ -28,12 +28,8 @@ from src.cifar10.general_child import GeneralChild
 from src.cifar10.micro_controller import MicroController
 from src.cifar10.micro_child import MicroChild
 
-# fix random seed
 seed = 42
-np.random.seed(seed)
-random.seed(seed)
-tf.set_random_seed(seed)
-os.environ["TF_CUDNN_CONVOLUTION_BWD_FILTER_ALGO_DETERMINISTIC"] = '1'
+data_seed = 1
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -111,6 +107,13 @@ DEFINE_integer("gpu", 0, "")
 
 # Give random seed
 DEFINE_integer("seed", seed, "")
+DEFINE_integer("data_seed", data_seed, "")
+
+# fix random seed
+np.random.seed(FLAGS.data_seed)
+random.seed(FLAGS.seed)
+tf.set_random_seed(FLAGS.seed)
+os.environ["TF_CUDNN_CONVOLUTION_BWD_FILTER_ALGO_DETERMINISTIC"] = '1'
 
 
 # Setup GPU
